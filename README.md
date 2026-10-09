@@ -1,48 +1,47 @@
-Для того что бы запустить данное прилодение на вашем компьютере на ОС WINDOWS, необходимио настроить окружение:
--Установить web-сервер.
--Установить сервер mysql.
-У меня все это было сделано при помощи XAMPP.
+# simtech_school
+
+Проект «Форма обратной связи» (`form_contact_us`): PHP-форма, которая сохраняет
+заявки в MySQL и отправляет их на почту через PHPMailer.
+
+Подробная инструкция — в [`form_contact_us/README.md`](form_contact_us/README.md).
+
+## Кратко: запуск на Windows (XAMPP)
+
+Для запуска необходимы web-сервер и сервер MySQL. Удобнее всего использовать
+[XAMPP](https://www.apachefriends.org/).
+
 0. Устанавливаем XAMPP.
-1. Открываем xampp-control и запускаем APACHE и MySql.
-2. Перемещаем папку с проектом на localhost.
+1. Открываем xampp-control и запускаем **Apache** и **MySQL**.
+2. Перемещаем папку проекта `form_contact_us` в `C:\xampp\htdocs\`.
+3. Копируем `form_contact_us/config.sample.php` в `form_contact_us/config.php`
+   и заполняем свои данные (БД и SMTP). Файл `config.php` в репозиторий не попадает.
+4. Открываем phpMyAdmin (xampp-control → MySQL → **Admin**), вкладка **Импорт**,
+   выбираем `form_contact_us/db/feedback.sql`.
+5. В браузере:
+   - `http://localhost/form_contact_us/form.php` — форма;
+   - `http://localhost/form_contact_us/table.php` — таблица с результатами.
 
-    По умолчанию директория для localhost будет "c:\xampp\htdocs\",
-    именно туда необхоидмо скинуть папку  "form_contact_us" из архива.
-    После перемещения вот так будет выглядеть директория C:\xampp\htdocs\form_contact_us 
-    
-3. Открываем  xampp-control  в пункте mysql нажимаем Admin 
-     и должен открыться PHPmyadmin. если потребует необходимо 
-     вветси свои данные (логин и пароль) для того что бы зайди в PHPmyadmin. 
-     Тут мы импортируем БД. Нажимаем на импорт и выбираем файл из папки db "feedback.sql".
-4. После этих манипуляций в браузере необходимо ввести http://localhost/form_contact_us/form.php должна открыться форма 
-    http://localhost/form_contact_us/table.php  должна открыться таблица с результатами     
+## Кратко: запуск на Ubuntu (LAMPP)
 
-Для того что бы настрить отправку на почту, заходим в send.php и вводим свои данные...
+1. Настраиваем окружение.
+2. Перемещаем папку `form_contact_us` в `/opt/lampp/htdocs/`.
+3. Копируем `config.sample.php` в `config.php` и заполняем данные.
+4. Заходим в phpMyAdmin `http://localhost/phpmyadmin/` и импортируем
+   `db/feedback.sql`.
+5. В браузере:
+   - `http://localhost/form_contact_us/form.php` — форма;
+   - `http://localhost/form_contact_us/table.php` — таблица с результатами.
 
-настройка под Ubuntu linux
-1. Необходимо настроить окружение.
-2. Перемещаем папку с проектом на localhost.
-    По умолчанию директория для localhost будет "opt\lampp\htdocs\",
-    именно туда необхоидмо скинуть папку  "form_contact_us" из архива.
-    После перемещения вот так будет выглядеть директория  opt\lampp\htdocs\form_contact_us
-3.  Заходим в PHPmyadmin localhost/phpmyadmin/
-     и должен открыться PHPmyadmin. если потребует необходимо 
-     вветси свои данные (логин и пароль) для того что бы зайди в PHPmyadmin. 
-     Тут мы импортируем БД. Нажимаем на импорт и выбираем файл из архива "feedback.sql".
-4. После этих манипуляций в браузере необходимо ввести http://localhost/form_contact_us/form.php должна открыться форма 
-    http://localhost/form_contact_us/table.php  должна открыться таблица с результатами
+### Если возникли проблемы с доступом
 
-если у вас возниктуть проблемы с доступом то необходимо сделать следующее:
-слэш должен стоять после htdocs и через sudo выполнить нужно это
-1. sudo chmod -R 777 /opt/lampp/htdocs/
-если не получается, нужно перейти в /opt/lampp/
+Слэш должен стоять после htdocs, команды выполняются через `sudo`:
 
-2. cd /opt/lampp/
-потом убедиться что там есть папка htdocs:
+1. `sudo chmod -R 777 /opt/lampp/htdocs/`
+2. Если не получается — переходим в `/opt/lampp/`: `cd /opt/lampp/`
+3. Убеждаемся, что есть папка htdocs: `ls`
+4. Затем: `sudo chmod 777 htdocs/`
 
-3. ls 
-после этой команды должна показываться папка htdocs
+## Настройка почты
 
-затем нужно выполнить команду
-
-4. sudo chmod 777 htdocs/
+Параметры SMTP задаются в `config.php` (создаётся из `config.sample.php`).
+Пароли в исходном коде не хранятся.

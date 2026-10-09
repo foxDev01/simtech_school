@@ -1,107 +1,134 @@
 <?php
-header("Location:form.php");
 require 'phpmailer/PHPMailer.php';
 require 'phpmailer/SMTP.php';
 require 'phpmailer/Exception.php';
-require 'connect.php';
-//файл вносится на сервер
-$file = "upload/".$_FILES['file']['name'];
- move_uploaded_file($_FILES['file']['tmp_name'], $file);
-  //if(isset($_FILES['file']['name']))
-//{
-// echo "Загруженный файл: ".$_FILES['file']['name']."</br>";
-// echo "Размер: ".$_FILES['file']['size']."байт";
-//}
-//   $path = scandir("upload");
-//   foreach($path as $f){
-//     if ($f !='.' and $f !='..'){
-//       echo $f. "<br>";
-//     }
-//} $hed
-// Переменные, которые отправляет пользователь
-$fname=$_POST['fname'];
-$lname=$_POST['lname'];
-$email=$_POST['email'];
-$phone=$_POST['tel'];
-$times=$_POST['time'];
-$occasion=$_POST['occasion'];
-$file=$_FILES['file']['name'];
-$msg=$_POST['msg'];
-$alert= "<script> alert('Ваша заявка отпарвлена');</script>";
 
-$title = $occasion;
-$body = "
+header('Content-Type: application/json; charset=utf-8');
+
+$config = require __DIR__ . '/config.php';
+require __DIR__ . '/connect.php';
+
+/**
+ * Отправляет JSON-ответ и завершает работу скрипта.
+ */
+function respond($result, array $extra = [])
+{
+    echo json_encode(array_merge(['result' => $result], $extra), JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+// Принимаем только POST-запросы
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    respond('error', ['status' => 'Метод не поддерживается']);
+}
+
+// --- Загрузка файла ---
+$uploadedFile = ''; // имя сохранённого файла (для БД)
+$uploadPath   = ''; // полный путь к сохранённому файлу
+
+if (isset($_FILES['file']) && $_FILES['file']['error'] !== UPLOAD_ERR_NO_FILE) {
+    if ($_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+        respond('error', ['status' => 'Ошибка загрузки файла (код ' . $_FILES['file']['error'] . ')']);
+    }
+
+    if ($_FILES['file']['size'] > $config['upload']['max_size']) {
+        respond('error', ['status' => 'Файл слишком большой']);
+    }
+
+    $ext = strtolower(pathinfo($_FILES['file']['name'], PATHINFO_EXTENSION));
+    if (!in_array($ext, $config['upload']['allowed_ext'], true)) {
+        respond('error', ['status' => 'Недопустимый тип файла']);
+    }
+
+    // Генерируем безопасное уникальное имя файла (не используем имя от пользователя).
+    $safeName   = bin2hex(random_bytes(16)) . ($ext !== '' ? '.' . $ext : '');
+    $uploadPath = rtrim($config['upload']['dir'], '/\\') . DIRECTORY_SEPARATOR . $safeName;
+
+    if (!move_uploaded_file($_FILES['file']['tmp_name'], $uploadPath)) {
+        respond('error', ['status' => 'Не удалось сохранить файл']);
+    }
+
+    $uploadedFile = $safeName;
+}
+
+// --- Поля формы ---
+$fname    = trim($_POST['fname'] ?? '');
+$lname    = trim($_POST['lname'] ?? '');
+$email    = trim($_POST['email'] ?? '');
+$phone    = trim($_POST['tel'] ?? '');
+$times    = trim($_POST['time'] ?? '');
+$occasion = trim($_POST['occasion'] ?? '');
+$msg      = trim($_POST['msg'] ?? '');
+
+if ($fname === '' || $email === '' || $phone === '') {
+    respond('error', ['status' => 'Заполните обязательные поля']);
+}
+
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    respond('error', ['status' => 'Некорректный email']);
+}
+
+// --- Сохранение в базу данных (prepared statement) ---
+$sql  = "INSERT INTO feedback (fname, lname, email, tel, tim, occasion, files, msg)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+$stmt = $conn->prepare($sql);
+
+if ($stmt === false) {
+    respond('error', ['status' => 'Ошибка подготовки запроса к базе данных']);
+}
+
+$stmt->bind_param('ssssssss', $fname, $lname, $email, $phone, $times, $occasion, $uploadedFile, $msg);
+
+if (!$stmt->execute()) {
+    $stmt->close();
+    respond('error', ['status' => 'Ошибка записи в базу данных']);
+}
+$stmt->close();
+
+// --- Отправка письма ---
+$title = $occasion !== '' ? 'Новая заявка: ' . $occasion : 'Новая заявка с сайта';
+$body  = "
 <h2>Новое письмо</h2>
-<b>Имя:</b> $fname<br>
-<b>Фамилия:</b>$lname<br>
-<b>Телефон:</b>$phone<br>
-<b>Время:</b>$times<br>
-<b>Повод:</b>$occasion<br>
-<b>Почта:</b> $email<br><br>
-<b>Сообщение:</b><br>$msg";
+<b>Имя:</b> " . htmlspecialchars($fname, ENT_QUOTES, 'UTF-8') . "<br>
+<b>Фамилия:</b> " . htmlspecialchars($lname, ENT_QUOTES, 'UTF-8') . "<br>
+<b>Телефон:</b> " . htmlspecialchars($phone, ENT_QUOTES, 'UTF-8') . "<br>
+<b>Время:</b> " . htmlspecialchars($times, ENT_QUOTES, 'UTF-8') . "<br>
+<b>Повод:</b> " . htmlspecialchars($occasion, ENT_QUOTES, 'UTF-8') . "<br>
+<b>Почта:</b> " . htmlspecialchars($email, ENT_QUOTES, 'UTF-8') . "<br><br>
+<b>Сообщение:</b><br>" . nl2br(htmlspecialchars($msg, ENT_QUOTES, 'UTF-8'));
 
-//отправка данных в базу даных
-$sql = "INSERT INTO feedback (fname,  lname, email,  tel,  tim,  occasion, files,  msg)
-              VALUES ('$fname','$lname','$email','$phone','$times','$occasion','$file','$msg')";
+$mail   = new PHPMailer\PHPMailer\PHPMailer(true);
+$status = '';
 
-if ($conn->query($sql) === TRUE) {
-  
-}
-
- else{
-  echo "Error: " . $sql . "<br>" . $conn->error;
-}
-
-// Настройки PHPMailer
-$mail = new PHPMailer\PHPMailer\PHPMailer();
 try {
-    $mail->isSMTP();   
-    $mail->CharSet = "UTF-8";
+    $mail->isSMTP();
+    $mail->CharSet    = 'UTF-8';
     $mail->SMTPAuth   = true;
-    // $mail->SMTPDebug = 2;
-    $mail->Debugoutput = function($str, $level) {$GLOBALS['status'][] = $str;};
-
-    // Настройки почты
-    $mail->Host       = 'smtp.gmail.com'; // SMTP сервера вашей почты
-    $mail->Username   = 'my.web.test073@gmail.com'; // Логин на почте
-    $mail->Password   = 'chuvash_web'; // Пароль на почте
-    $mail->SMTPSecure = 'ssl';
-    $mail->Port       = 465;
-    $mail->setFrom('faraday073@gmail.com', 'C формы сайта'); // Адрес самой почты и имя отправителя
+    $mail->Host       = $config['mail']['host'];
+    $mail->Username   = $config['mail']['username'];
+    $mail->Password   = $config['mail']['password'];
+    $mail->SMTPSecure = $config['mail']['secure'];
+    $mail->Port       = $config['mail']['port'];
+    $mail->setFrom($config['mail']['from_email'], $config['mail']['from_name']);
 
     // Получатель письма
-    $mail->addAddress('faraday073@gmail.com');  
-    
+    $mail->addAddress($config['mail']['to_email']);
 
-    // Прикрипление файлов к письму
+    // Прикрепление файла к письму
+    if ($uploadPath !== '' && is_file($uploadPath)) {
+        $mail->addAttachment($uploadPath);
+    }
 
-if (!empty($_FILES['file']['tmp_name'])) {
-    $filePath="upload/" . $_FILES['file']['name'];
-        if (copy($filePath, $_FILES['file']['tmp_name'])){
-            $fileAtach=$filePath;
-            $mail->addAttachment($fileAtach);
-        }
-      
-}
+    // Отправка сообщения
+    $mail->isHTML(true);
+    $mail->Subject = $title;
+    $mail->Body    = $body;
+    $mail->send();
 
-// Отправка сообщения
-$mail->isHTML(true);
-$mail->Subject = $title;
-$mail->Body = $body;    
-
-// Проверяем отравленность сообщения
-if ($mail->send()) {$result = "success";
-  echo $alert;
-
-} 
-else {$result = "error";}
-
+    $result = 'success';
 } catch (Exception $e) {
-    $result = "error";
-    $statuses = "Сообщение не было отправлено. Причина ошибки: {$mail->ErrorInfo}";
+    $result = 'error';
+    $status = 'Сообщение не было отправлено. Причина ошибки: ' . $mail->ErrorInfo;
 }
 
-echo json_encode(["result" => $result, "resultfile" => $file, "status" => $statuses]);
-
-
-?>
+respond($result, ['status' => $status, 'resultfile' => $uploadedFile]);

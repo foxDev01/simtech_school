@@ -78,3 +78,14 @@ TODO
 *.swp
 *.orig
 *.tmp
+
+# --- form_contact_us ---
+# Локальная конфигурация с паролями не должна попадать в репозиторий
+form_contact_us/config.php
+# Загруженные пользователями файлы не коммитим
+form_contact_us/upload/*
+!form_contact_us/upload/.htaccess
+!form_contact_us/upload/.gitkeep
+# Но схему БД храним в репозитории (исключение из правила *.sql выше)
+!form_contact_us/db/
+!form_contact_us/db/*.sql

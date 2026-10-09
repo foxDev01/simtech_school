@@ -1,0 +1,8 @@
+# Каталог загруженных файлов: запрещаем выполнение любых скриптов.
+php_flag engine off
+
+<FilesMatch "\.(?i:php|phtml|phar|php[0-9]|pl|py|cgi|asp|aspx|sh)$">
+    Require all denied
+</FilesMatch>
+
+Options -ExecCGI -Indexes
